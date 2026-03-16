@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="description" content="Приложение для учёта финансов: доходы, расходы и цели">
+    <title>Финансовый трекер</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Экран входа (только при настроенной синхронизации) -->
+    <div class="auth-screen" id="authScreen" style="display: none;">
+        <div class="auth-box">
+            <h1>💰 Финансы</h1>
+            <p class="auth-subtitle">Войдите, чтобы синхронизировать данные на ПК и телефоне</p>
+            <form id="authForm">
+                <div class="form-group">
+                    <label for="authEmail">Email</label>
+                    <input type="email" id="authEmail" required placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="authPassword">Пароль</label>
+                    <input type="password" id="authPassword" required placeholder="••••••••" minlength="6">
+                </div>
+                <p class="auth-error" id="authError"></p>
+                <button type="submit" class="btn btn-primary btn-block" id="authSubmit">Войти</button>
+            </form>
+            <p class="auth-switch">
+                <span id="authSwitchText">Нет аккаунта?</span>
+                <button type="button" class="link-btn" id="authSwitchBtn">Регистрация</button>
+            </p>
+            <button type="button" class="btn btn-secondary btn-block" id="localBtn">Использовать локально (без синхронизации)</button>
+        </div>
+    </div>
+
+    <div class="app" id="app">
+        <header class="header">
+            <div class="header-row">
+                <h1 class="logo">💰 Финансы</h1>
+                <div class="account-selector">
+                    <select id="accountSelect">
+                        <!-- Accounts populated by JS -->
+                    </select>
+                    <button type="button" id="editAccountBtn" title="Редактировать счет">✏️</button>
+                    <button type="button" id="addAccountBtn" title="Добавить счет">+</button>
+                </div>
+                <button class="logout-btn" id="logoutBtn" style="display: none;" title="Выйти">Выход</button>
+            </div>
+            <div class="balance-summary">
+                <div class="balance-card total">
+                    <span class="label">Баланс</span>
+                    <span class="amount" id="totalBalance">0 ₽</span>
+                    <button type="button" class="balance-adjust-btn" id="adjustBalanceBtn" title="Корректировка баланса">✎</button>
+                </div>
+                <div class="balance-card income">
+                    <span class="label">Доходы</span>
+                    <span class="amount" id="totalIncome">0 ₽</span>
+                </div>
+                <div class="balance-card expense">
+                    <span class="label">Расходы</span>
+                    <span class="amount" id="totalExpense">0 ₽</span>
+                </div>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab active" data-tab="goals">Цели</button>
+            <button class="tab" data-tab="transactions">Операции</button>
+            <button class="tab" data-tab="recurring">Постоянные</button>
+            <button class="tab" data-tab="temki">Темки</button>
+            <button class="tab" data-tab="advisor">Консультант</button>
+            <button class="tab" data-tab="stats">Статистика</button>
+        </nav>
+
+        <main class="content">
+            <!-- Goals Tab (default) -->
+            <section class="tab-content active" id="goals">
+                <button class="btn btn-primary" id="addGoalBtn">+ Новая цель</button>
+                <div class="goals-list" id="goalsList">
+                    <!-- Goals will be rendered here -->
+                </div>
+            </section>
+
+            <!-- Transactions Tab -->
+            <section class="tab-content" id="transactions">
+                <div class="actions">
+                    <button class="btn btn-income" id="addIncomeBtn">+ Доход</button>
+                    <button class="btn btn-expense" id="addExpenseBtn">+ Расход</button>
+                </div>
+                <div class="transaction-list" id="transactionList">
+                    <!-- Transactions will be rendered here -->
+                </div>
+            </section>
+
+            <!-- Temki Tab - custom income types -->
+            <section class="tab-content" id="temki">
+                <p class="tab-hint">Дополнительные виды дохода. Добавьте свои темы (фриланс, сдача квартиры и т.д.) — они появятся при добавлении дохода.</p>
+                <button type="button" class="btn btn-primary" id="addTemkaBtn">+ Добавить вид дохода</button>
+                <div class="temki-list" id="temkiList"></div>
+            </section>
+
+            <!-- Recurring Expenses Tab -->
+            <section class="tab-content" id="recurring">
+                <p class="tab-hint">Аренда, подписки, еда, интернет — расходы, которые повторяются каждый месяц</p>
+                <button type="button" class="btn btn-primary" id="addRecurringBtn">+ Добавить постоянный расход</button>
+                <div class="recurring-list" id="recurringList"></div>
+            </section>
+
+            <!-- Advisor Tab -->
+            <section class="tab-content" id="advisor">
+                <p class="tab-hint">Получите персональные финансовые советы от ИИ на основе ваших данных.</p>
+                <button class="btn btn-primary" id="openAdvisorModalBtn">Открыть AI Консультант</button>
+            </section>
+
+            <!-- Stats Tab -->
+            <section class="tab-content" id="stats">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>По категориям расходов</h3>
+                        <div class="chart-placeholder" id="expenseByCategory">
+                            <!-- Chart content -->
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>За период</h3>
+                        <div class="period-selector">
+                            <select id="periodSelect">
+                                <option value="week">Неделя</option>
+                                <option value="month" selected>Месяц</option>
+                                <option value="year">Год</option>
+                            </select>
+                        </div>
+                        <div class="summary-stats" id="periodStats"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add Transaction Modal -->
+    <div class="modal" id="transactionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Добавить операцию</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <form id="transactionForm">
+                <input type="hidden" id="transactionType" value="income">
+                <input type="hidden" id="transactionId" value="">
+                <div class="form-group recurring-quick-select" id="recurringQuickSelect" style="display: none;">
+                    <label>Быстрый выбор постоянных расходов</label>
+                    <div class="recurring-chips" id="recurringChips"></div>
+                </div>
+                <div class="form-group temki-quick-select" id="temkiQuickSelect" style="display: none;">
+                    <label>Быстрый выбор по темкам</label>
+                    <div class="recurring-chips" id="temkiChips"></div>
+                </div>
+                <div class="form-group">
+                    <label for="transactionAmount">Сумма (₽)</label>
+                    <input type="number" id="transactionAmount" min="0" step="0.01" required placeholder="0">
+                </div>
+                <div class="form-group transaction-temka-link" id="transactionTemkaLink" style="display: none;">
+                    <label for="transactionTemkaId">Связать с источником дохода</label>
+                    <select id="transactionTemkaId">
+                        <option value="">— Не связывать</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="transactionCategory">Категория</label>
+                    <select id="transactionCategory">
+                        <!-- Categories populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="transactionDescription">Описание</label>
+                    <input type="text" id="transactionDescription" placeholder="Краткое описание">
+                </div>
+                <div class="form-group">
+                    <label for="transactionDate">Дата</label>
+                    <input type="date" id="transactionDate" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Adjust Balance Modal -->
+    <div class="modal" id="adjustBalanceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Корректировка баланса</h2>
+                <button class="modal-close" id="closeAdjustBalanceModal">&times;</button>
+            </div>
+            <form id="adjustBalanceForm">
+                <div class="form-group">
+                    <label for="adjustAmount">Сумма (₽). Положительная — добавить к балансу, отрицательная — вычесть</label>
+                    <input type="number" id="adjustAmount" step="0.01" placeholder="5000 или -3000" required>
+                </div>
+                <div class="form-group">
+                    <label for="adjustDescription">Комментарий (необязательно)</label>
+                    <input type="text" id="adjustDescription" placeholder="Корректировка, начальный остаток...">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Применить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Temka Detail Modal -->
+    <div class="modal" id="temkaDetailModal">
+        <div class="modal-content modal-content-wide">
+            <div class="modal-header">
+                <h2 id="temkaDetailTitle">Темка</h2>
+                <button class="modal-close" id="closeTemkaDetailModal">&times;</button>
+            </div>
+            <div class="temka-detail-content" id="temkaDetailContent">
+                <div class="temka-detail-stats" id="temkaDetailStats"></div>
+                <button type="button" class="btn btn-income temka-add-income-btn" id="temkaDetailAddIncomeBtn">+ Добавить доход</button>
+                <div class="temka-detail-section">
+                    <h3>Доходы</h3>
+                    <div class="temka-detail-list" id="temkaDetailIncome"></div>
+                </div>
+                <div class="temka-detail-section">
+                    <h3>Расходы</h3>
+                    <div class="temka-detail-list" id="temkaDetailExpense"></div>
+                </div>
+                <button type="button" class="btn btn-primary" id="temkaDetailEditBtn">Редактировать темку</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Temka Modal -->
+    <div class="modal" id="temkaModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="temkaModalTitle">Новый вид дохода</h2>
+                <button class="modal-close" id="closeTemkaModal">&times;</button>
+            </div>
+            <form id="temkaForm">
+                <input type="hidden" id="temkaId" value="">
+                <div class="form-group">
+                    <label for="temkaName">Название</label>
+                    <input type="text" id="temkaName" required placeholder="Сдача квартиры, Фриланс, Дивиденды...">
+                </div>
+                <div class="form-group">
+                    <label for="temkaExpenseAmount">Расход (₽)</label>
+                    <input type="number" id="temkaExpenseAmount" min="0" step="0.01" placeholder="Оставьте пустым, если нет">
+                </div>
+                <div class="form-group form-checkbox">
+                    <label>
+                        <input type="checkbox" id="temkaIsFixed">
+                        <span>Фиксированный доход</span>
+                    </label>
+                </div>
+                <div class="form-group temka-fixed-amount" id="temkaFixedAmountGroup" style="display: none;">
+                    <label for="temkaFixedAmount">Сумма фиксированного дохода (₽)</label>
+                    <input type="number" id="temkaFixedAmount" min="0" step="0.01" placeholder="0">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Recurring Expense Modal -->
+    <div class="modal" id="recurringModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="recurringModalTitle">Постоянный расход</h2>
+                <button class="modal-close" id="closeRecurringModal">&times;</button>
+            </div>
+            <form id="recurringForm">
+                <input type="hidden" id="recurringId" value="">
+                <div class="form-group">
+                    <label for="recurringName">Название</label>
+                    <input type="text" id="recurringName" required placeholder="Аренда, Netflix, продукты...">
+                </div>
+                <div class="form-group">
+                    <label for="recurringAmount">Сумма в месяц (₽)</label>
+                    <input type="number" id="recurringAmount" min="0" step="0.01" required placeholder="0">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Goal Modal -->
+    <div class="modal" id="goalModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="goalModalTitle">Новая цель</h2>
+                <button class="modal-close" id="closeGoalModal">&times;</button>
+            </div>
+            <form id="goalForm">
+                <input type="hidden" id="goalId" value="">
+                <div class="form-group">
+                    <label for="goalName">Название цели</label>
+                    <input type="text" id="goalName" required placeholder="Например: Новый телефон">
+                </div>
+                <div class="form-group">
+                    <label for="goalTarget">Целевая сумма (₽)</label>
+                    <input type="number" id="goalTarget" min="0" step="0.01" required placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label for="goalCurrent">Текущие накопления (₽)</label>
+                    <input type="number" id="goalCurrent" min="0" step="0.01" value="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label for="goalDeadline">Срок (дата)</label>
+                    <input type="date" id="goalDeadline" placeholder="Не обязательно">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Account Modal -->
+    <div class="modal" id="accountModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="accountModalTitle">Новый счет</h2>
+                <button class="modal-close" id="closeAccountModal">&times;</button>
+            </div>
+            <form id="accountForm">
+                <input type="hidden" id="accountId" value="">
+                <div class="form-group">
+                    <label for="accountName">Название счета</label>
+                    <input type="text" id="accountName" required placeholder="Например: Наличные, Карта">
+                </div>
+                <div class="form-group">
+                    <label for="accountInitialBalance">Начальный баланс (₽)</label>
+                    <input type="number" id="accountInitialBalance" step="0.01" value="0" placeholder="0">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
+                <button type="button" id="deleteAccountBtn" class="btn btn-danger btn-block" style="display: none;">Удалить счет</button>
+            </form>
+        </div>
+    </div>
+    <!-- AI Advisor Modal -->
+    <div class="modal" id="advisorModal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>🤖 AI Финансовый Консультант</h2>
+                <button class="modal-close" id="closeAdvisorModal">&times;</button>
+            </div>
+            <div class="advisor-chat">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message ai">
+                        <strong>AI:</strong> Привет! Я ваш финансовый консультант. Расскажите о ваших доходах, расходах или целях, и я дам советы. Вы можете задать вопрос ниже. Используйте бесплатный trial Groq API (модель llama-3.1-8b-instant).
+                    </div>
+                </div>
+                <div class="chat-input">
+                    <textarea id="advisorQuestion" placeholder="Введите ваш вопрос или опишите ситуацию..." rows="3"></textarea>
+                    <button class="btn btn-primary" id="sendAdvisorBtn">Отправить</button>
+                </div>
+                <div class="api-key-section">
+                    <label for="apiKey">API Ключ Groq (получите на <a href="https://console.groq.com/" target="_blank">console.groq.com</a>):</label>
+                    <input type="password" id="apiKey" placeholder="gsk-...">
+                    <label>
+                        <input type="checkbox" id="rememberKey">
+                        <span>Запомнить ключ (синхронизировать между устройствами)</span>
+                    </label>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">⚠️ Ключ хранится в зашифрованном виде на сервере Firebase. Используйте на свой страх и риск.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="firebase-config.js"></script>
+    <script src="firebase-service.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
